@@ -1,14 +1,6 @@
 import { useRef, useEffect } from "react";
 import * as d3 from "d3";
-
-const COLORS = {
-  "Tool calls": "#58a6ff",
-  Messages: "#3fb950",
-  Reasoning: "#bc8cff",
-  "System/setup": "#8b949e",
-  "File operations": "#d29922",
-  Compaction: "#f85149",
-};
+import { CATEGORY_COLORS, createTooltip } from "../utils/chart";
 
 export default function BreakdownTreemap({ breakdown, onCategorySelect }) {
   const svgRef = useRef();
@@ -34,20 +26,7 @@ export default function BreakdownTreemap({ breakdown, onCategorySelect }) {
     const root = d3.hierarchy(hierarchy).sum((d) => d.value);
     d3.treemap().size([width, height]).padding(3).round(true)(root);
 
-    const tooltip = d3
-      .select("body")
-      .append("div")
-      .style("position", "absolute")
-      .style("background", "var(--bg-card)")
-      .style("border", "1px solid var(--border)")
-      .style("border-radius", "6px")
-      .style("padding", "8px 12px")
-      .style("font-family", "var(--font-mono)")
-      .style("font-size", "12px")
-      .style("color", "var(--text-primary)")
-      .style("pointer-events", "none")
-      .style("opacity", 0)
-      .style("z-index", 1000);
+    const tooltip = createTooltip(d3);
 
     svg
       .selectAll("g")
@@ -74,7 +53,7 @@ export default function BreakdownTreemap({ breakdown, onCategorySelect }) {
           .append("rect")
           .attr("width", (d) => d.x1 - d.x0)
           .attr("height", (d) => d.y1 - d.y0)
-          .attr("fill", (d) => COLORS[d.data.name] || "#8b949e")
+          .attr("fill", (d) => CATEGORY_COLORS[d.data.name] || "#8b949e")
           .attr("rx", 4)
           .attr("opacity", 0.85)
           .style("cursor", "pointer")

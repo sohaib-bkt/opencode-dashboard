@@ -12,7 +12,6 @@ export default function App() {
   const [turns, setTurns] = useState([]);
   const [parts, setParts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedPartId, setSelectedPartId] = useState(null);
 
   useEffect(() => {
     fetch("/api/sessions")
@@ -37,7 +36,6 @@ export default function App() {
         setBreakdown(b);
         setTurns(t.turns);
         setSelectedCategory(null);
-        setSelectedPartId(null);
         setParts([]);
       })
       .catch((err) => {
@@ -90,8 +88,6 @@ export default function App() {
           <DrilldownView
             parts={parts}
             category={selectedCategory}
-            onPartSelect={setSelectedPartId}
-            selectedPartId={selectedPartId}
           />
         )}
       </div>

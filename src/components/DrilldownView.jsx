@@ -11,9 +11,8 @@ const CATEGORY_LABELS = {
   compaction: "Compaction",
 };
 
-export default function DrilldownView({ parts, category, onPartSelect, selectedPartId }) {
+export default function DrilldownView({ parts, category }) {
   const [sortBy, setSortBy] = useState("time");
-  const [expandedId, setExpandedId] = useState(null);
 
   const sorted = useMemo(() => {
     const copy = [...parts];

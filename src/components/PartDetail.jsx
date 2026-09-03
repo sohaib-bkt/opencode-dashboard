@@ -1,5 +1,19 @@
 import { useState } from "react";
 
+const codeBlockStyle = {
+  background: "var(--bg-primary)",
+  border: "1px solid var(--border)",
+  borderRadius: "6px",
+  padding: "12px",
+  fontSize: "12px",
+  fontFamily: "var(--font-mono)",
+  overflow: "auto",
+  maxHeight: "300px",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+  color: "var(--text-primary)",
+};
+
 export default function PartDetail({ part }) {
   const [open, setOpen] = useState(false);
 
@@ -48,21 +62,7 @@ export default function PartDetail({ part }) {
               >
                 Input
               </div>
-              <pre
-                style={{
-                  background: "var(--bg-primary)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "6px",
-                  padding: "12px",
-                  fontSize: "12px",
-                  fontFamily: "var(--font-mono)",
-                  overflow: "auto",
-                  maxHeight: "300px",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  color: "var(--text-primary)",
-                }}
-              >
+              <pre style={codeBlockStyle}>
                 {typeof input === "string" ? input : JSON.stringify(input, null, 2)}
               </pre>
             </div>
@@ -79,21 +79,7 @@ export default function PartDetail({ part }) {
               >
                 Result
               </div>
-              <pre
-                style={{
-                  background: "var(--bg-primary)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "6px",
-                  padding: "12px",
-                  fontSize: "12px",
-                  fontFamily: "var(--font-mono)",
-                  overflow: "auto",
-                  maxHeight: "300px",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  color: "var(--text-primary)",
-                }}
-              >
+              <pre style={codeBlockStyle}>
                 {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
               </pre>
             </div>
