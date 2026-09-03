@@ -20,7 +20,6 @@ const CATEGORY_MAP = {
 
 function aggregateBreakdown(parts) {
   const cats = {};
-  const toolTotals = {};
 
   for (const part of parts) {
     const type = part.reason || "unknown";
@@ -55,7 +54,7 @@ function aggregateBreakdown(parts) {
 
   const total = Object.values(cats).reduce((sum, c) => sum + c.total, 0);
 
-  return { categories: Object.values(cats), total, tools: Object.values(toolTotals) };
+  return { categories: Object.values(cats), total };
 }
 
 // GET /api/sessions/:id/breakdown
