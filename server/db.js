@@ -8,8 +8,7 @@ const dataDir =
 const dbPath = path.join(dataDir, "opencode.db");
 
 if (!fs.existsSync(dbPath)) {
-  console.error(`Database not found at ${dbPath}`);
-  process.exit(1);
+  throw new Error(`Database not found at ${dbPath}`);
 }
 
 const db = new Database(dbPath, { readonly: true });
@@ -48,7 +47,15 @@ export function getStepFinishParts(sessionId) {
        ORDER BY time_created ASC`
     )
     .all(sessionId)
-    .map((row) => ({ ...JSON.parse(row.data), time_created: row.time_created }));
+    .map((row) => {
+      try {
+        return { ...JSON.parse(row.data), time_created: row.time_created };
+      } catch {
+        console.warn(`Skipping malformed part row for session ${sessionId}`);
+        return null;
+      }
+    })
+    .filter(Boolean);
 }
 
 export function getPartsBySession(sessionId, category) {
@@ -59,7 +66,15 @@ export function getPartsBySession(sessionId, category) {
        ORDER BY time_created ASC`
     )
     .all(sessionId, category)
-    .map((row) => ({ id: row.id, time_created: row.time_created, ...JSON.parse(row.data) }));
+    .map((row) => {
+      try {
+        return { id: row.id, time_created: row.time_created, ...JSON.parse(row.data) };
+      } catch {
+        console.warn(`Skipping malformed part row ${row.id} for session ${sessionId}`);
+        return null;
+      }
+    })
+    .filter(Boolean);
 }
 
 export function getPartById(sessionId, partId) {
@@ -70,7 +85,12 @@ export function getPartById(sessionId, partId) {
     )
     .get(sessionId, partId);
   if (!row) return null;
-  return { id: row.id, time_created: row.time_created, ...JSON.parse(row.data) };
+  try {
+    return { id: row.id, time_created: row.time_created, ...JSON.parse(row.data) };
+  } catch {
+    console.warn(`Skipping malformed part row ${partId} for session ${sessionId}`);
+    return null;
+  }
 }
 
 export default db;
