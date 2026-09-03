@@ -2,9 +2,10 @@ import { Router } from "express";
 import {
   getSession,
   getStepFinishParts,
-  getPartsBySession,
+  getPartsWithStepTokens,
   getPartById,
 } from "../db.js";
+import { getContextWindow } from "../models.js";
 
 const router = Router();
 
@@ -12,13 +13,6 @@ const CATEGORY_MAP = {
   "tool-calls": "Tool calls",
   stop: "Text & responses",
   unknown: "Uncategorized",
-};
-
-// Map category identifiers (from breakdown) to part types for the parts query
-const CATEGORY_TO_PART_TYPE = {
-  "tool-calls": "tool",
-  stop: "text",
-  unknown: "unknown",
 };
 
 function aggregateBreakdown(parts) {
@@ -60,6 +54,16 @@ function aggregateBreakdown(parts) {
   return { categories: Object.values(cats), total };
 }
 
+// Count non step-finish items that fall under each step reason
+function countItemsByCategory(sessionId) {
+  const counts = {};
+  for (const part of getPartsWithStepTokens(sessionId)) {
+    const label = CATEGORY_MAP[part.step_reason] || part.step_reason || "Uncategorized";
+    counts[label] = (counts[label] || 0) + 1;
+  }
+  return counts;
+}
+
 // GET /api/sessions/:id/breakdown
 router.get("/:id/breakdown", (req, res) => {
   const session = getSession(req.params.id);
@@ -67,7 +71,35 @@ router.get("/:id/breakdown", (req, res) => {
 
   const parts = getStepFinishParts(req.params.id);
   const breakdown = aggregateBreakdown(parts);
-  res.json(breakdown);
+  const itemCounts = countItemsByCategory(req.params.id);
+
+  breakdown.categories = breakdown.categories.map((c) => ({
+    ...c,
+    items: itemCounts[c.label] || 0,
+    total_live: c.tokens_input + c.tokens_output + c.tokens_reasoning,
+    pct: breakdown.total > 0 ? (c.total / breakdown.total) * 100 : 0,
+  }));
+
+  const totals = breakdown.categories.reduce(
+    (acc, c) => {
+      acc.input += c.tokens_input;
+      acc.output += c.tokens_output;
+      acc.reasoning += c.tokens_reasoning;
+      acc.cache_read += c.tokens_cache_read;
+      acc.cache_write += c.tokens_cache_write;
+      return acc;
+    },
+    { input: 0, output: 0, reasoning: 0, cache_read: 0, cache_write: 0 }
+  );
+
+  res.json({
+    ...breakdown,
+    totals: {
+      ...totals,
+      total: totals.input + totals.output + totals.reasoning + totals.cache_read + totals.cache_write,
+    },
+    contextWindow: getContextWindow(session.model),
+  });
 });
 
 // GET /api/sessions/:id/turns
@@ -92,8 +124,43 @@ router.get("/:id/parts", (req, res) => {
   if (!session) return res.status(404).json({ error: "Session not found" });
 
   const category = req.query.category || "tool-calls";
-  const partType = CATEGORY_TO_PART_TYPE[category] || category;
-  const parts = getPartsBySession(req.params.id, partType);
+  const label = CATEGORY_MAP[category] || category;
+
+  const items = getPartsWithStepTokens(req.params.id).filter(
+    (p) => (CATEGORY_MAP[p.step_reason] || p.step_reason || "Uncategorized") === label
+  );
+
+  const parts = items.map((p) => {
+    let summary = "";
+    if (p.type === "text") {
+      summary = typeof p.text === "string" ? p.text : "";
+    } else if (p.state?.input) {
+      const input = p.state.input;
+      if (typeof input === "string") summary = input;
+      else {
+        const parts2 = [];
+        if (input.command) parts2.push(input.command);
+        if (input.filePath) parts2.push(input.filePath.replace(/^.*\//, ""));
+        if (input.name) parts2.push(input.name);
+        if (Object.keys(input).length && parts2.length === 0)
+          parts2.push(JSON.stringify(input));
+        summary = parts2.join(" ");
+      }
+    }
+    return {
+      id: p.id,
+      time_created: p.time_created,
+      type: p.type,
+      tool: p.tool || null,
+      state: p.state || null,
+      text: p.type === "text" ? p.text || null : null,
+      turn: p.turn ?? null,
+      step_reason: p.step_reason ?? null,
+      step_tokens: p.step_tokens || null,
+      summary: summary.slice(0, 200),
+    };
+  });
+
   res.json({ parts });
 });
 

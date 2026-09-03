@@ -101,3 +101,177 @@ body {
   margin-bottom: 16px;
   color: var(--text-secondary);
 }
+
+/* Progress bar and context window states */
+.progress-bar {
+  height: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.progress-normal {
+  background: var(--accent-green);
+}
+.progress-warning {
+  background: var(--accent-orange);
+}
+.progress-critical {
+  background: var(--accent-red);
+}
+.progress-overflow {
+  background: var(--accent-red);
+}
+
+/* Context window distribution */
+.context-dist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.context-dist-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.context-dist-seg {
+  height: 100%;
+}
+
+.context-dist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.context-dist-value {
+  margin-left: auto;
+  color: var(--text-primary);
+}
+
+.context-dist-sub {
+  width: 48px;
+  text-align: right;
+  color: var(--text-secondary);
+}
+
+/* Category summary list */
+.category-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.category-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.category-summary-row:hover {
+  border-color: var(--accent-blue);
+}
+
+.category-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.category-name {
+  font-weight: 600;
+}
+
+.category-tokens {
+  margin-left: auto;
+  color: var(--text-primary);
+}
+
+.category-pct {
+  width: 48px;
+  text-align: right;
+  color: var(--text-secondary);
+}
+
+/* Chart tooltip (shared by recharts & d3) */
+.chart-tooltip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.chart-tooltip-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.chart-tooltip-sub {
+  color: var(--text-secondary);
+}
+
+/* Drill-down */
+.drill-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.token-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+}
+
+.token-rows-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.token-rows-total {
+  border-color: var(--accent-blue);
+}
+

@@ -7,6 +7,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { formatTokens, formatPct, formatNumber } from "../utils/format";
 
 const COLORS = {
   "Tool calls": "var(--accent-blue)",
@@ -14,12 +15,31 @@ const COLORS = {
   Uncategorized: "var(--text-secondary)",
 };
 
+function BarTooltip({ active, payload, total }) {
+  if (!active || !payload?.length) return null;
+  const entry = payload[0].payload;
+  const pct = total > 0 ? (entry.tokens / total) * 100 : 0;
+  return (
+    <div className="chart-tooltip">
+      <div className="chart-tooltip-title">{entry.name}</div>
+      <div>{formatNumber(entry.tokens)} tokens</div>
+      <div className="chart-tooltip-sub">{formatPct(pct)} of total</div>
+    </div>
+  );
+}
+
 export default function BreakdownBar({ breakdown, onCategorySelect }) {
-  const data = breakdown.categories.map((c) => ({
-    name: c.label,
-    tokens: c.total,
-    fill: COLORS[c.label] || "var(--text-secondary)",
-  }));
+  const total = breakdown.total || 0;
+  const data = breakdown.categories.map((c) => {
+    const pct = total > 0 ? (c.total / total) * 100 : 0;
+    return {
+      name: c.label,
+      tokens: c.total,
+      fill: COLORS[c.label] || "var(--text-secondary)",
+      pct,
+      items: c.items || 0,
+    };
+  });
 
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -32,14 +52,8 @@ export default function BreakdownBar({ breakdown, onCategorySelect }) {
           width={110}
         />
         <Tooltip
-          contentStyle={{
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            borderRadius: "6px",
-            fontFamily: "var(--font-mono)",
-            fontSize: "12px",
-          }}
-          formatter={(value) => [value.toLocaleString() + " tokens", "Total"]}
+          cursor={{ fill: "rgba(110,118,129,0.1)" }}
+          content={<BarTooltip total={total} />}
         />
         <Bar
           dataKey="tokens"

@@ -94,7 +94,9 @@ export default function App() {
         )}
       </header>
       <div className="container">
-        {selectedSession && <OverviewCards session={selectedSession} />}
+        {selectedSession && (
+          <OverviewCards session={selectedSession} breakdown={breakdown} />
+        )}
         {breakdown && (
           <BreakdownTabs
             breakdown={breakdown}
@@ -105,6 +107,7 @@ export default function App() {
           <DrilldownView
             parts={parts}
             category={selectedCategory}
+            total={breakdown?.total || 0}
           />
         )}
       </div>

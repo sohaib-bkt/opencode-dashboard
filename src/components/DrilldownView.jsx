@@ -7,12 +7,14 @@ const CATEGORY_LABELS = {
   unknown: "Uncategorized",
 };
 
-export default function DrilldownView({ parts, category }) {
+export default function DrilldownView({ parts, category, total }) {
   const [sortBy, setSortBy] = useState("time");
 
   const sorted = useMemo(() => {
     const copy = [...parts];
     if (sortBy === "time") copy.sort((a, b) => a.time_created - b.time_created);
+    else if (sortBy === "tokens")
+      copy.sort((a, b) => (b.step_tokens?.total || 0) - (a.step_tokens?.total || 0));
     return copy;
   }, [parts, sortBy]);
 
@@ -43,6 +45,7 @@ export default function DrilldownView({ parts, category }) {
             }}
           >
             <option value="time">By time</option>
+            <option value="tokens">By tokens</option>
           </select>
         </div>
       </div>
@@ -54,13 +57,20 @@ export default function DrilldownView({ parts, category }) {
           overflow: "hidden",
         }}
       >
+        <div className="drill-head">
+          <span style={{ width: 90 }}>TOKENS</span>
+          <span style={{ width: 56 }}>%</span>
+          <span style={{ width: 48 }}>TURN</span>
+          <span style={{ width: 150 }}>TYPE</span>
+          <span style={{ flex: 1 }}>SUMMARY</span>
+        </div>
         {sorted.length === 0 && (
           <div style={{ padding: 24, color: "var(--text-secondary)", textAlign: "center" }}>
             No parts in this category
           </div>
         )}
         {sorted.map((part) => (
-          <PartDetail key={part.id} part={part} />
+          <PartDetail key={part.id} part={part} total={total} />
         ))}
       </div>
     </div>
