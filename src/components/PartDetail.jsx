@@ -20,7 +20,7 @@ export default function PartDetail({ part }) {
   const toolName = part.tool || part.type;
   const input = part.state?.input;
   const result = part.state?.output ?? part.state?.result;
-  const status = part.state?.status;
+  const status = part.state?.status ?? null;
 
   return (
     <div style={{ borderTop: "1px solid var(--border)" }}>
@@ -43,7 +43,7 @@ export default function PartDetail({ part }) {
         <span>
           {toolName}{" "}
           <span style={{ color: status === "completed" ? "var(--accent-green)" : "var(--accent-red)" }}>
-            [{status}]
+            {status ? `[${status}]` : ""}
           </span>
         </span>
         <span style={{ color: "var(--text-secondary)" }}>{open ? "\u25B2" : "\u25BC"}</span>

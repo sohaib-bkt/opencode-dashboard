@@ -10,11 +10,8 @@ import {
 
 const COLORS = {
   "Tool calls": "var(--accent-blue)",
-  Messages: "var(--accent-green)",
-  Reasoning: "var(--accent-purple)",
-  "System/setup": "var(--text-secondary)",
-  "File operations": "var(--accent-orange)",
-  Compaction: "var(--accent-red)",
+  "Text & responses": "var(--accent-green)",
+  Uncategorized: "var(--text-secondary)",
 };
 
 export default function BreakdownBar({ breakdown, onCategorySelect }) {
