@@ -9,12 +9,12 @@ export default function OverviewCards({ session, breakdown }) {
     session.tokens_cache_read +
     session.tokens_cache_write;
 
-  const contextTokens =
-    session.tokens_input + session.tokens_output + session.tokens_reasoning;
-
+  const ctx = session.currentContext || {};
+  const contextTokens = ctx.total ?? 0;
   const contextWindow = session.contextWindow || 200000;
-  const ctx = calculateContextUsage(contextTokens, contextWindow);
-  const ctxBarPct = clampPct(ctx.pct);
+  const usage = calculateContextUsage(contextTokens, contextWindow);
+  const ctxBarPct = clampPct(usage.pct);
+  const ctxTotal = contextTokens || total;
 
   const inputPct = total > 0 ? (session.tokens_input / total) * 100 : 0;
   const outputPct = total > 0 ? (session.tokens_output / total) * 100 : 0;
@@ -24,10 +24,10 @@ export default function OverviewCards({ session, breakdown }) {
   const cacheWritePct = total > 0 ? (session.tokens_cache_write / total) * 100 : 0;
 
   const distribution = [
-    { label: "INPUT", value: session.tokens_input, color: "var(--accent-blue)" },
-    { label: "CACHE WRITE", value: session.tokens_cache_write, color: "var(--accent-orange)" },
-    { label: "CACHE READ", value: session.tokens_cache_read, color: "var(--accent-purple)" },
-    { label: "OUTPUT", value: session.tokens_output, color: "var(--accent-green)" },
+    { label: "INPUT", value: ctx.input ?? 0, color: "var(--accent-blue)" },
+    { label: "CACHE WRITE", value: ctx.cacheWrite ?? 0, color: "var(--accent-orange)" },
+    { label: "CACHE READ", value: ctx.cacheRead ?? 0, color: "var(--accent-purple)" },
+    { label: "OUTPUT", value: ctx.output ?? 0, color: "var(--accent-green)" },
   ];
 
   const ctxStateColor = {
@@ -35,14 +35,14 @@ export default function OverviewCards({ session, breakdown }) {
     warning: "var(--accent-orange)",
     critical: "var(--accent-red)",
     overflow: "var(--accent-red)",
-  }[ctx.state];
+  }[usage.state];
 
   const ctxStateLabel = {
     normal: "Normal",
     warning: "Warning",
     critical: "Critical",
     overflow: "Context window exceeded",
-  }[ctx.state];
+  }[usage.state];
 
   return (
     <>
@@ -56,7 +56,7 @@ export default function OverviewCards({ session, breakdown }) {
           </div>
           <div className="sub">
             <span style={{ color: ctxStateColor }}>
-              {formatPct(ctx.pct)} of context window
+              {formatPct(usage.pct, 0)} of context window
             </span>
           </div>
           <div className="progress-bar">
@@ -70,17 +70,17 @@ export default function OverviewCards({ session, breakdown }) {
         <div className="card">
           <div className="label">Context Window</div>
           <div className="value" style={{ fontSize: "22px" }}>
-            {formatNumber(contextTokens)}
+            {formatTokens(contextTokens)}
           </div>
           <div className="sub">
-            {formatPct(ctx.pct)} of {formatNumber(contextWindow)} context
+            {formatPct(usage.pct, 0)} of {formatNumber(contextWindow)} context
           </div>
           <div className="sub" style={{ color: ctxStateColor }}>
             {ctxStateLabel}
           </div>
           <div className="progress-bar" style={{ margin: "10px 0 14px" }}>
             <div
-              className={`progress-fill progress-${ctx.state}`}
+              className={`progress-fill progress-${usage.state}`}
               style={{ width: `${ctxBarPct}%` }}
             />
           </div>
@@ -91,7 +91,7 @@ export default function OverviewCards({ session, breakdown }) {
                   key={d.label}
                   className="context-dist-seg"
                   style={{
-                    width: `${total > 0 ? (d.value / total) * 100 : 0}%`,
+                    width: `${ctxTotal > 0 ? (d.value / ctxTotal) * 100 : 0}%`,
                     background: d.color,
                   }}
                   title={`${d.label}: ${formatTokens(d.value)}`}
@@ -103,7 +103,7 @@ export default function OverviewCards({ session, breakdown }) {
                 <span style={{ color: d.color }}>{d.label}</span>
                 <span className="context-dist-value">{formatTokens(d.value)}</span>
                 <span className="context-dist-sub">
-                  {total > 0 ? formatPct((d.value / total) * 100, 2) : "0%"}
+                  {ctxTotal > 0 ? formatPct((d.value / ctxTotal) * 100, 2) : "0%"}
                 </span>
               </div>
             ))}
@@ -139,7 +139,7 @@ export default function OverviewCards({ session, breakdown }) {
 
         <div className="card">
           <div className="label">Estimated Cost</div>
-          <div className="value">${session.cost.toFixed(4)}</div>
+          <div className="value">${session.cost.toFixed(2)}</div>
           <div className="sub">{formatTokens(session.tokens_reasoning)} reasoning tokens</div>
         </div>
       </div>

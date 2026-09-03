@@ -1,9 +1,9 @@
 // Known context window sizes per model id (tokens).
 // The session `model` column stores only a provider id/string, not a context
 // window, so we maintain this map. Values are best-effort and configurable.
-const CONTEXT_WINDOWS = {
-  "big-pickle": 1_000_000,
-};
+// big-pickle is intentionally NOT overridden: measured usage (17,273 tokens
+// reported as ~9% used) confirms it uses the 200K default below.
+const CONTEXT_WINDOWS = {};
 
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 

@@ -39,6 +39,30 @@ export function getSession(id) {
     .get(id);
 }
 
+// Returns the tokens object of the most recent message that carries token
+// usage ({total, input, output, reasoning, cache}). This is the active
+// context OpenCode reports (current context window usage), distinct from the
+// session's cumulative lifetime counters.
+export function getCurrentContext(sessionId) {
+  const rows = db
+    .prepare(
+      `SELECT data, time_updated FROM message
+       WHERE session_id = ?
+       ORDER BY time_updated ASC`
+    )
+    .all(sessionId);
+  let latest = null;
+  for (const row of rows) {
+    try {
+      const d = JSON.parse(row.data);
+      if (d && d.tokens) latest = d.tokens;
+    } catch {
+      // ignore malformed rows
+    }
+  }
+  return latest;
+}
+
 export function getStepFinishParts(sessionId) {
   return db
     .prepare(
