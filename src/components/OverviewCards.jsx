@@ -1,3 +1,5 @@
+import { formatTokens } from "../utils/format";
+
 export default function OverviewCards({ session }) {
   const total =
     session.tokens_input +
@@ -43,10 +45,4 @@ export default function OverviewCards({ session }) {
       </div>
     </>
   );
-}
-
-function formatTokens(n) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
-  return n.toString();
 }
