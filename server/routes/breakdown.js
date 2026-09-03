@@ -10,7 +10,7 @@ const router = Router();
 
 const CATEGORY_MAP = {
   "tool-calls": "Tool calls",
-  stop: "Messages",
+  stop: "Text & responses",
   unknown: "Uncategorized",
 };
 

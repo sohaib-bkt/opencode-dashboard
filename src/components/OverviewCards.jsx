@@ -23,7 +23,7 @@ export default function OverviewCards({ session }) {
         <div className="card">
           <div className="label">Total Tokens</div>
           <div className="value">{formatTokens(total)}</div>
-          <div className="sub">{contextPct}% of 200K context</div>
+          <div className="sub">{formatTokens(contextTokens)} live · {contextPct}% of 200K context</div>
         </div>
         <div className="card">
           <div className="label">Input / Output</div>

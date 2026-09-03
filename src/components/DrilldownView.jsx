@@ -3,7 +3,7 @@ import PartDetail from "./PartDetail";
 
 const CATEGORY_LABELS = {
   "tool-calls": "Tool calls",
-  stop: "Messages",
+  stop: "Text & responses",
   unknown: "Uncategorized",
 };
 
