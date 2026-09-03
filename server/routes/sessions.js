@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { getAllSessions, getCurrentContext } from "../db.js";
-import { parseModelId, getContextWindow } from "../models.js";
+import {
+  parseModelId,
+  getContextWindow,
+  getModelName,
+} from "../models.js";
 
 const router = Router();
 
@@ -10,6 +14,7 @@ router.get("/", (req, res) => {
     return {
       ...s,
       model: parseModelId(s.model),
+      modelName: getModelName(s.model),
       contextWindow: getContextWindow(s.model),
       currentContext: {
         total: ctx.total ?? 0,

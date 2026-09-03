@@ -76,6 +76,19 @@ export default function App() {
     <>
       <header className="header">
         <h1>OpenCode Dashboard</h1>
+        {selectedSession && (
+          <div
+            className="model-badge"
+            title={`${selectedSession.model || ""} · ${selectedSession.contextWindow?.toLocaleString()} token context window`}
+          >
+            <span className="model-badge-name">
+              {selectedSession.modelName || selectedSession.model || "—"}
+            </span>
+            <span className="model-badge-sub">
+              {formatTokens(selectedSession.contextWindow)} context window
+            </span>
+          </div>
+        )}
         <SessionPicker
           sessions={sessions}
           selectedId={selectedId}
