@@ -19,6 +19,10 @@ export default function App() {
       .then((d) => {
         setSessions(d.sessions);
         if (d.sessions.length > 0) setSelectedId(d.sessions[0].id);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch sessions:", err);
+        setSessions([]);
       });
   }, []);
 
@@ -27,20 +31,27 @@ export default function App() {
     Promise.all([
       fetch(`/api/sessions/${selectedId}/breakdown`).then((r) => r.json()),
       fetch(`/api/sessions/${selectedId}/turns`).then((r) => r.json()),
-    ]).then(([b, t]) => {
-      setBreakdown(b);
-      setTurns(t.turns);
-      setSelectedCategory(null);
-      setSelectedPartId(null);
-      setParts([]);
-    });
+    ])
+      .then(([b, t]) => {
+        setBreakdown(b);
+        setTurns(t.turns);
+        setSelectedCategory(null);
+        setSelectedPartId(null);
+        setParts([]);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch session data:", err);
+      });
   }, [selectedId]);
 
   useEffect(() => {
     if (!selectedId || !selectedCategory) return;
     fetch(`/api/sessions/${selectedId}/parts?category=${selectedCategory}`)
       .then((r) => r.json())
-      .then((d) => setParts(d.parts));
+      .then((d) => setParts(d.parts))
+      .catch((err) => {
+        console.error("Failed to fetch parts:", err);
+      });
   }, [selectedId, selectedCategory]);
 
   const selectedSession = sessions.find((s) => s.id === selectedId);
