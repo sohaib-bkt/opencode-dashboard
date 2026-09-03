@@ -8,11 +8,13 @@ export default function OverviewCards({ session }) {
     session.tokens_cache_read +
     session.tokens_cache_write;
 
+  const contextTokens =
+    session.tokens_input + session.tokens_output + session.tokens_reasoning;
   const inputPct = total > 0 ? ((session.tokens_input / total) * 100).toFixed(1) : 0;
   const outputPct = total > 0 ? ((session.tokens_output / total) * 100).toFixed(1) : 0;
   const cacheTotal = session.tokens_cache_read + session.tokens_cache_write;
   const cacheHitPct = cacheTotal > 0 ? ((session.tokens_cache_read / cacheTotal) * 100).toFixed(1) : 0;
-  const contextPct = total > 0 ? ((total / 200000) * 100).toFixed(1) : 0;
+  const contextPct = contextTokens > 0 ? ((contextTokens / 200000) * 100).toFixed(1) : 0;
 
   return (
     <>

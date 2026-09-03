@@ -9,13 +9,16 @@ import {
 const router = Router();
 
 const CATEGORY_MAP = {
-  tool: "Tool calls",
-  text: "Messages",
-  reasoning: "Reasoning",
-  "step-start": "System/setup",
-  patch: "File operations",
-  file: "File operations",
-  compaction: "Compaction",
+  "tool-calls": "Tool calls",
+  stop: "Messages",
+  unknown: "Uncategorized",
+};
+
+// Map category identifiers (from breakdown) to part types for the parts query
+const CATEGORY_TO_PART_TYPE = {
+  "tool-calls": "tool",
+  stop: "text",
+  unknown: "unknown",
 };
 
 function aggregateBreakdown(parts) {
@@ -83,13 +86,14 @@ router.get("/:id/turns", (req, res) => {
   res.json({ turns });
 });
 
-// GET /api/sessions/:id/parts?category=tool
+// GET /api/sessions/:id/parts?category=tool-calls
 router.get("/:id/parts", (req, res) => {
   const session = getSession(req.params.id);
   if (!session) return res.status(404).json({ error: "Session not found" });
 
-  const category = req.query.category || "tool";
-  const parts = getPartsBySession(req.params.id, category);
+  const category = req.query.category || "tool-calls";
+  const partType = CATEGORY_TO_PART_TYPE[category] || category;
+  const parts = getPartsBySession(req.params.id, partType);
   res.json({ parts });
 });
 

@@ -19,7 +19,7 @@ export default function PartDetail({ part }) {
 
   const toolName = part.tool || part.type;
   const input = part.state?.input;
-  const result = part.state?.result;
+  const result = part.state?.output ?? part.state?.result;
   const status = part.state?.status;
 
   return (

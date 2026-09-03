@@ -2,13 +2,9 @@ import { useState, useMemo } from "react";
 import PartDetail from "./PartDetail";
 
 const CATEGORY_LABELS = {
-  tool: "Tool calls",
-  text: "Messages",
-  reasoning: "Reasoning",
-  "step-start": "System/setup",
-  patch: "File operations",
-  file: "File operations",
-  compaction: "Compaction",
+  "tool-calls": "Tool calls",
+  stop: "Messages",
+  unknown: "Uncategorized",
 };
 
 export default function DrilldownView({ parts, category }) {
