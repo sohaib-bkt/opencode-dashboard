@@ -1,7 +1,7 @@
 export const CATEGORY_COLORS = {
-  "Tool calls": "#58a6ff",
-  "Text & responses": "#3fb950",
-  Uncategorized: "#8b949e",
+  "Tool calls": "#2b3fee",
+  "Text & responses": "#0e9f6e",
+  Uncategorized: "#5c6675",
 };
 
 export function createTooltip(d3) {

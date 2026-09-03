@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import SessionPicker from "./components/SessionPicker";
+import ContextHero from "./components/ContextHero";
 import OverviewCards from "./components/OverviewCards";
 import BreakdownTabs from "./components/BreakdownTabs";
 import DrilldownView from "./components/DrilldownView";
@@ -75,27 +76,35 @@ export default function App() {
   return (
     <>
       <header className="header">
-        <h1>OpenCode Dashboard</h1>
-        {selectedSession && (
-          <div
-            className="model-badge"
-            title={`${selectedSession.model || ""} · ${selectedSession.contextWindow?.toLocaleString()} token context window`}
-          >
-            <span className="model-badge-name">
-              {selectedSession.modelName || selectedSession.model || "—"}
-            </span>
-            <span className="model-badge-sub">
-              {formatTokens(selectedSession.contextWindow)} context window
-            </span>
-          </div>
-        )}
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true" />
+          <span>
+            <span className="brand-name">Opencode</span>
+            <br />
+            <span className="brand-sub">Token meter</span>
+          </span>
+        </div>
         <SessionPicker
           sessions={sessions}
           selectedId={selectedId}
           onChange={setSelectedId}
         />
         {selectedSession && (
+          <div
+            className="model-badge"
+            title={`${selectedSession.model || ""} · ${selectedSession.contextWindow?.toLocaleString()} token context window`}
+          >
+            <span className="model-badge-name">
+              {selectedSession.modelName || selectedSession.model || "Unknown model"}
+            </span>
+            <span className="model-badge-sub">
+              {formatTokens(selectedSession.contextWindow)} window
+            </span>
+          </div>
+        )}
+        {selectedSession && (
           <div className="total-display">
+            <small>Lifetime tokens</small>
             {formatTokens(
               selectedSession.tokens_input +
                 selectedSession.tokens_output +
@@ -107,6 +116,7 @@ export default function App() {
         )}
       </header>
       <div className="container">
+        {selectedSession && <ContextHero session={selectedSession} />}
         {selectedSession && (
           <OverviewCards session={selectedSession} breakdown={breakdown} />
         )}

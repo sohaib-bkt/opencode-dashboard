@@ -5,17 +5,7 @@ export default function SessionPicker({ sessions, selectedId, onChange }) {
     <select
       value={selectedId || ""}
       onChange={(e) => onChange(e.target.value)}
-      style={{
-        background: "var(--bg-card)",
-        color: "var(--text-primary)",
-        border: "1px solid var(--border)",
-        borderRadius: "6px",
-        padding: "8px 12px",
-        fontSize: "14px",
-        fontFamily: "var(--font-mono)",
-        cursor: "pointer",
-        maxWidth: "400px",
-      }}
+      aria-label="Choose a session"
     >
       {sessions.map((s) => (
         <option key={s.id} value={s.id}>
