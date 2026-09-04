@@ -7,7 +7,7 @@ const CATEGORY_LABELS = {
   unknown: "Uncategorized",
 };
 
-export default function DrilldownView({ parts, category, total }) {
+export default function DrilldownView({ parts, category, title, total }) {
   const [sortBy, setSortBy] = useState("time");
 
   const sorted = useMemo(() => {
@@ -25,7 +25,7 @@ export default function DrilldownView({ parts, category, total }) {
           Drill-down
         </h2>
         <span style={{ color: "var(--text-secondary)", fontSize: "13px" }}>
-          {CATEGORY_LABELS[category] || category}
+          {title || CATEGORY_LABELS[category] || category}
         </span>
         <span style={{ color: "var(--text-secondary)", fontSize: "13px" }}>
           ({parts.length} items)

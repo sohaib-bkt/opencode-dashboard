@@ -485,54 +485,204 @@ body {
   color: var(--text-secondary);
 }
 
-/* Category summary list */
-.category-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
+/* ---------- Breakdown strip: stacked mix bar + tiles ---------- */
+.strip {
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+  margin-bottom: 4px;
 }
 
-.category-summary-row {
+.strip-bar {
+  display: flex;
+  gap: 3px;
+  height: 30px;
+  margin-bottom: 14px;
+}
+
+.strip-seg {
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  min-width: 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--bg-card);
-  border: 1.5px solid var(--ink);
-  border-radius: 10px;
-  padding: 12px 14px;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-  box-shadow: var(--shadow-soft);
+  justify-content: center;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.category-summary-row:hover {
+.strip-seg span {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.strip-seg:hover {
+  transform: translateY(-1px);
+}
+
+.strip-seg.is-selected {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.strip-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.strip-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  background: var(--paper);
+  border: 1.5px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0 12px 10px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.strip-tile:hover {
   transform: translateY(-2px);
+  border-color: var(--ink);
+}
+
+.strip-tile.is-selected {
+  border: 2px solid var(--ink);
   box-shadow: 3px 3px 0 rgba(20, 26, 38, 0.9);
 }
 
-.category-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.strip-tile-band {
+  height: 5px;
+  margin: 0 -12px 8px;
 }
 
-.category-name {
+.strip-tile-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.strip-tile-label {
+  font-size: 12.5px;
   font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
 }
 
-.category-tokens {
+.strip-tile-pct {
   margin-left: auto;
-  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-.category-pct {
-  width: 48px;
-  text-align: right;
+.strip-tile-value {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+
+.strip-tile-sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.strip-note {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-top: 12px;
+}
+
+/* ---------- Treemap chrome ---------- */
+.treemap-wrap {
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  padding: 12px 14px 14px;
+}
+
+.treemap-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.treemap-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.crumb-sep {
+  color: var(--text-secondary);
+}
+
+.crumb-current {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.link-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1.5px solid var(--hairline);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.link-btn:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.treemap-crumbs + .link-btn,
+.treemap-bar .link-btn:first-child {
+  margin-left: auto;
+}
+
+.treemap-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.treemap-empty {
+  padding: 32px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -595,10 +745,9 @@ body {
   border: 1.5px solid var(--volt);
 }
 
-/* Chart/tab surfaces rendered with inline styles inherit the light tokens;
-   give svg text a matching ink color */
-svg text {
-  fill: var(--ink);
+/* Recharts axis ticks inherit the light theme (d3 tiles set their own fills) */
+.recharts-cartesian-axis-tick text {
+  fill: var(--text-secondary);
 }
 
 /* ---------- Responsive ---------- */

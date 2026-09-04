@@ -12,6 +12,7 @@ export default function App() {
   const [breakdown, setBreakdown] = useState(null);
   const [parts, setParts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [toolFilter, setToolFilter] = useState(null);
 
   useEffect(() => {
     fetch("/api/sessions")
@@ -32,6 +33,7 @@ export default function App() {
   useEffect(() => {
     setBreakdown(null);
     setSelectedCategory(null);
+    setToolFilter(null);
     setParts([]);
   }, [selectedId]);
 
@@ -59,8 +61,11 @@ export default function App() {
   }, [selectedId]);
 
   useEffect(() => {
-    if (!selectedId || !selectedCategory) return;
-    fetch(`/api/sessions/${selectedId}/parts?category=${selectedCategory}`)
+    if (!selectedId || (!selectedCategory && !toolFilter)) return;
+    const qs = toolFilter
+      ? `tool=${encodeURIComponent(toolFilter.tool)}`
+      : `category=${selectedCategory}`;
+    fetch(`/api/sessions/${selectedId}/parts?${qs}`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -69,9 +74,19 @@ export default function App() {
       .catch((err) => {
         console.error("Failed to fetch parts:", err);
       });
-  }, [selectedId, selectedCategory]);
+  }, [selectedId, selectedCategory, toolFilter]);
 
   const selectedSession = sessions.find((s) => s.id === selectedId);
+
+  const handleCategorySelect = (type) => {
+    setToolFilter(null);
+    setSelectedCategory(type);
+  };
+
+  const handleToolSelect = (tool, label) => {
+    setSelectedCategory(null);
+    setToolFilter({ tool, label });
+  };
 
   return (
     <>
@@ -122,14 +137,17 @@ export default function App() {
         )}
         {breakdown && (
           <BreakdownTabs
+            sessionId={selectedId}
             breakdown={breakdown}
-            onCategorySelect={setSelectedCategory}
+            onCategorySelect={handleCategorySelect}
+            onToolSelect={handleToolSelect}
           />
         )}
         {parts.length > 0 && (
           <DrilldownView
             parts={parts}
             category={selectedCategory}
+            title={toolFilter ? `${toolFilter.label} calls` : null}
             total={breakdown?.total || 0}
           />
         )}

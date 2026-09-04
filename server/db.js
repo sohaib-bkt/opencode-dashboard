@@ -153,4 +153,40 @@ export function getPartById(sessionId, partId) {
   }
 }
 
+// Returns content parts (text, reasoning, tool, file) annotated with the
+// role of their parent message (user / assistant / null). Boundary markers
+// (step-start / step-finish) and compaction markers are excluded.
+export function getContentParts(sessionId) {
+  const rows = db
+    .prepare(
+      `SELECT p.id, p.data, p.time_created, m.data AS mdata
+       FROM part p LEFT JOIN message m ON p.message_id = m.id
+       WHERE p.session_id = ?
+       ORDER BY p.time_created ASC`
+    )
+    .all(sessionId);
+
+  const result = [];
+  for (const row of rows) {
+    let data;
+    try {
+      data = JSON.parse(row.data);
+    } catch {
+      continue;
+    }
+    if (data.type === "step-start" || data.type === "step-finish") continue;
+    if (data.type === "compaction") continue;
+    let role = null;
+    if (row.mdata) {
+      try {
+        role = JSON.parse(row.mdata).role || null;
+      } catch {
+        role = null;
+      }
+    }
+    result.push({ id: row.id, time_created: row.time_created, role, ...data });
+  }
+  return result;
+}
+
 export default db;

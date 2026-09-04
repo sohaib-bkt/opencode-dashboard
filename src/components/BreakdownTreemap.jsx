@@ -1,55 +1,102 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import * as d3 from "d3";
-import { CATEGORY_COLORS, createTooltip } from "../utils/chart";
+import {
+  TREEMAP_FOCUS_EXCLUDE,
+  attrLeafColor,
+  createTooltip,
+} from "../utils/chart";
 import { formatTokens, formatNumber, formatPct } from "../utils/format";
 
-export default function BreakdownTreemap({ breakdown, onCategorySelect }) {
+function truncate(s, maxChars) {
+  if (s.length <= maxChars) return s;
+  if (maxChars <= 1) return "";
+  return `${s.slice(0, maxChars - 1)}…`;
+}
+
+export default function BreakdownTreemap({ attribution, zoomKey, onZoom, onToolSelect }) {
   const svgRef = useRef();
+  const [focus, setFocus] = useState(true);
+
+  const cats = attribution?.categories || [];
+  const total = attribution?.total || 0;
+
+  const excluded = focus ? cats.filter((c) => TREEMAP_FOCUS_EXCLUDE.includes(c.key)) : [];
+  const excludedTotal = excluded.reduce((a, c) => a + c.total, 0);
+  const visible = cats.filter(
+    (c) => (!focus || !TREEMAP_FOCUS_EXCLUDE.includes(c.key)) && (!zoomKey || c.key === zoomKey)
+  );
 
   useEffect(() => {
-    if (!breakdown?.categories?.length) return;
+    if (!visible.length || !svgRef.current) return;
 
-    const width = 900;
-    const height = 400;
+    const width = 960;
+    const height = 420;
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
     svg.attr("viewBox", `0 0 ${width} ${height}`);
 
-    const catByLabel = {};
     const hierarchy = {
       name: "root",
-      children: breakdown.categories.map((c) => {
-        catByLabel[c.label] = c;
-        return { name: c.label, value: c.total, type: c.type };
-      }),
+      children: visible.map((c) => ({
+        name: c.label,
+        key: c.key,
+        children: c.children.map((l) => ({
+          name: l.label,
+          value: Math.max(l.value, 0.0001),
+          catKey: c.key,
+          catLabel: c.label,
+          tool: l.tool || null,
+          items: l.items || 0,
+          estimated: !!l.estimated,
+        })),
+      })),
     };
 
     const root = d3.hierarchy(hierarchy).sum((d) => d.value);
-    d3.treemap().size([width, height]).padding(3).round(true)(root);
+    d3.treemap().size([width, height]).paddingOuter(4).paddingInner(3).round(true)(root);
 
     const tooltip = createTooltip(d3);
-    const total = breakdown.total || 0;
+    const leaves = root.leaves();
+    // Stable leaf ordering per parent for color variation
+    const idxByParent = {};
+    leaves.forEach((d) => {
+      const k = d.data.catKey;
+      idxByParent[k] = idxByParent[k] || [];
+      idxByParent[k].push(d);
+    });
+    Object.values(idxByParent).forEach((arr) =>
+      arr.sort((a, b) => b.data.value - a.data.value).forEach((d, i) => {
+        d.data.colorIdx = i;
+        d.data.colorTotal = arr.length;
+      })
+    );
 
-    svg
+    const g = svg
       .selectAll("g")
-      .data(root.leaves())
+      .data(leaves)
       .join("g")
       .attr("transform", (d) => `translate(${d.x0},${d.y0})`)
+      .style("cursor", "pointer")
       .on("click", (event, d) => {
-        const cat = breakdown.categories.find((c) => c.label === d.data.name);
-        if (cat) onCategorySelect(cat.type);
+        if (d.data.tool) onToolSelect(d.data.tool, d.data.name);
+        else if (!zoomKey) onZoom(d.data.catKey);
       })
       .on("mouseover", (event, d) => {
-        const cat = catByLabel[d.data.name];
         const pct = total > 0 ? (d.data.value / total) * 100 : 0;
-        const items = cat?.items ?? 0;
         tooltip
           .style("opacity", 1)
           .html(
-            `<div class="chart-tooltip-title">Category: ${d.data.name}</div>` +
-              `<div>Tokens: ${formatNumber(d.data.value)}</div>` +
-              `<div>Percentage: ${pct.toFixed(1)}% of total</div>` +
-              (items ? `<div>Items: ${items}</div>` : "")
+            `<div class="chart-tooltip-title">${d.data.name}</div>` +
+              `<div>${d.data.catLabel} · ${formatNumber(Math.round(d.data.value))} tokens</div>` +
+              `<div class="chart-tooltip-sub">${formatPct(pct, 1)} of total` +
+              (d.data.items ? ` · ${d.data.items.toLocaleString()} items` : "") +
+              (d.data.estimated ? " · estimated" : "") +
+              `</div>` +
+              (d.data.tool
+                ? `<div class="chart-tooltip-sub">Click to list ${d.data.name} calls</div>`
+                : !zoomKey
+                  ? `<div class="chart-tooltip-sub">Click to zoom</div>`
+                  : "")
           );
       })
       .on("mousemove", (event) => {
@@ -57,81 +104,83 @@ export default function BreakdownTreemap({ breakdown, onCategorySelect }) {
           .style("left", event.pageX + 12 + "px")
           .style("top", event.pageY - 28 + "px");
       })
-      .on("mouseout", () => tooltip.style("opacity", 0))
-      .call((g) =>
-        g
-          .append("rect")
-          .attr("width", (d) => d.x1 - d.x0)
-          .attr("height", (d) => d.y1 - d.y0)
-          .attr("fill", (d) => CATEGORY_COLORS[d.data.name] || "#8b949e")
-          .attr("rx", 4)
-          .attr("opacity", 0.85)
-          .style("cursor", "pointer")
-      )
-      .call((g) =>
-        g
-          .append("text")
-          .attr("x", 8)
-          .attr("y", 16)
-          .text((d) => (d.x1 - d.x0 < 70 ? "" : d.data.name))
-          .attr("fill", "#fff")
-          .attr("font-size", "12px")
-          .attr("font-weight", "600")
-          .style("pointer-events", "none")
-      )
-      .call((g) =>
-        g
-          .append("text")
-          .attr("x", 8)
-          .attr("y", 32)
-          .text((d) => {
-            if (d.x1 - d.x0 < 130 || d.y1 - d.y0 < 36) return "";
-            return formatTokens(d.data.value) + " tokens";
-          })
-          .attr("fill", "#fff")
-          .attr("font-size", "11px")
-          .attr("opacity", 0.9)
-          .style("pointer-events", "none")
-      )
-      .call((g) =>
-        g
-          .append("text")
-          .attr("x", 8)
-          .attr("y", 46)
-          .text((d) => {
-            if (d.x1 - d.x0 < 130 || d.y1 - d.y0 < 52) return "";
-            const pct = total > 0 ? (d.data.value / total) * 100 : 0;
-            return formatPct(pct);
-          })
-          .attr("fill", "#fff")
-          .attr("font-size", "11px")
-          .attr("opacity", 0.75)
-          .style("pointer-events", "none")
-      )
-      .call((g) =>
-        g
-          .append("text")
-          .attr("x", 8)
-          .attr("y", 60)
-          .text((d) => {
-            const cat = catByLabel[d.data.name];
-            if (!cat || d.x1 - d.x0 < 200 || d.y1 - d.y0 < 66) return "";
-            return `input ${formatTokens(cat.tokens_input)} · cache ${formatTokens(cat.tokens_cache_read)}`;
-          })
-          .attr("fill", "#fff")
-          .attr("font-size", "10px")
-          .attr("opacity", 0.6)
-          .style("pointer-events", "none")
-      );
+      .on("mouseout", () => tooltip.style("opacity", 0));
+
+    g.append("rect")
+      .attr("width", (d) => Math.max(d.x1 - d.x0, 0))
+      .attr("height", (d) => Math.max(d.y1 - d.y0, 0))
+      .attr("fill", (d) => attrLeafColor(d.data.catKey, d.data.colorIdx, d.data.colorTotal))
+      .attr("rx", 5)
+      .attr("opacity", 0.92);
+
+    const text = (dy, size, weight, opacity, show) =>
+      g
+        .append("text")
+        .attr("x", 8)
+        .attr("y", dy)
+        .text((d) => {
+          const w = d.x1 - d.x0;
+          const h = d.y1 - d.y0;
+          const s = show(d);
+          if (!s) return "";
+          return truncate(s, Math.max(0, Math.floor((w - 12) / 6.5)));
+        })
+        .attr("fill", "#fff")
+        .attr("font-size", `${size}px`)
+        .attr("font-weight", weight)
+        .attr("opacity", opacity)
+        .style("pointer-events", "none");
+
+    text(17, 12.5, 600, 1, (d) => (d.x1 - d.x0 >= 44 && d.y1 - d.y0 >= 20 ? d.data.name : ""));
+    text(33, 11, 400, 0.92, (d) =>
+      d.x1 - d.x0 >= 96 && d.y1 - d.y0 >= 38 ? formatTokens(d.data.value) : ""
+    );
+    text(47, 11, 400, 0.75, (d) => {
+      if (d.x1 - d.x0 < 96 || d.y1 - d.y0 < 54) return "";
+      const pct = total > 0 ? (d.data.value / total) * 100 : 0;
+      return formatPct(pct, 1);
+    });
 
     return () => {
       tooltip.remove();
     };
-  }, [breakdown, onCategorySelect]);
+  }, [attribution, zoomKey, focus, onZoom, onToolSelect]);
+
+  if (!cats.length) return null;
+
+  const zoomCat = zoomKey ? cats.find((c) => c.key === zoomKey) : null;
 
   return (
-    <div style={{ overflow: "hidden" }}>
-      <svg ref={svgRef} width="100%" style={{ display: "block" }} />
+    <div className="treemap-wrap">
+      <div className="treemap-bar">
+        <div className="treemap-crumbs">
+          {zoomCat ? (
+            <>
+              <button className="link-btn" onClick={() => onZoom(null)}>
+                All categories
+              </button>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">{zoomCat.label}</span>
+            </>
+          ) : (
+            <span className="crumb-current">All categories</span>
+          )}
+        </div>
+        <button className="link-btn" onClick={() => setFocus(!focus)}>
+          {focus ? "Show system & history" : "Focus on work"}
+        </button>
+      </div>
+      {excludedTotal > 0 && (
+        <div className="treemap-note">
+          Focus hides {excluded.map((c) => c.label).join(" + ")} ({formatPct((excludedTotal / total) * 100, 1)} of
+          total)
+        </div>
+      )}
+      {visible.length === 0 || visible.every((c) => !c.children.length) ? (
+        <div className="treemap-empty">Nothing to show in this view</div>
+      ) : (
+        <svg ref={svgRef} width="100%" style={{ display: "block" }} />
+      )}
     </div>
   );
 }

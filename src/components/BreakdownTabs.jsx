@@ -1,24 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import BreakdownBar from "./BreakdownBar";
 import BreakdownTreemap from "./BreakdownTreemap";
 import BreakdownSunburst from "./BreakdownSunburst";
-import CategorySummary from "./CategorySummary";
+import BreakdownStrip from "./BreakdownStrip";
 
 const TABS = [
-  { id: "bar", label: "Bar Chart" },
   { id: "treemap", label: "Treemap" },
   { id: "sunburst", label: "Sunburst" },
+  { id: "bar", label: "Bar" },
 ];
 
-export default function BreakdownTabs({ breakdown, onCategorySelect }) {
-  const [active, setActive] = useState("bar");
+export default function BreakdownTabs({
+  sessionId,
+  breakdown,
+  onCategorySelect,
+  onToolSelect,
+}) {
+  const [active, setActive] = useState("treemap");
+  const [zoomKey, setZoomKey] = useState(null);
   const total = breakdown?.total || 0;
+
+  useEffect(() => {
+    setZoomKey(null);
+  }, [sessionId]);
 
   return (
     <div style={{ marginBottom: 32 }}>
       <h2 className="section-title">Token Breakdown</h2>
 
-      <CategorySummary categories={breakdown.categories} total={total} onCategorySelect={onCategorySelect} />
+      {breakdown.attribution && (
+        <BreakdownStrip
+          attribution={breakdown.attribution}
+          selectedKey={zoomKey}
+          onSelect={setZoomKey}
+        />
+      )}
 
       <div
         style={{
@@ -49,9 +65,23 @@ export default function BreakdownTabs({ breakdown, onCategorySelect }) {
           </button>
         ))}
       </div>
-      {active === "bar" && <BreakdownBar breakdown={breakdown} onCategorySelect={onCategorySelect} />}
-      {active === "treemap" && <BreakdownTreemap breakdown={breakdown} onCategorySelect={onCategorySelect} />}
-      {active === "sunburst" && <BreakdownSunburst breakdown={breakdown} onCategorySelect={onCategorySelect} />}
+      {active === "treemap" && breakdown.attribution && (
+        <BreakdownTreemap
+          attribution={breakdown.attribution}
+          zoomKey={zoomKey}
+          onZoom={setZoomKey}
+          onToolSelect={onToolSelect}
+        />
+      )}
+      {active === "treemap" && !breakdown.attribution && (
+        <BreakdownBar breakdown={breakdown} onCategorySelect={onCategorySelect} />
+      )}
+      {active === "sunburst" && (
+        <BreakdownSunburst breakdown={breakdown} onCategorySelect={onCategorySelect} />
+      )}
+      {active === "bar" && (
+        <BreakdownBar breakdown={breakdown} onCategorySelect={onCategorySelect} />
+      )}
     </div>
   );
 }
