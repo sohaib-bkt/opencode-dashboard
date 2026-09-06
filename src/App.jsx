@@ -10,9 +10,8 @@ export default function App() {
   const [sessions, setSessions] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
-  const [parts, setParts] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [toolFilter, setToolFilter] = useState(null);
+  const [drill, setDrill] = useState(null);
+  const [drillData, setDrillData] = useState(null);
 
   useEffect(() => {
     fetch("/api/sessions")
@@ -32,9 +31,8 @@ export default function App() {
 
   useEffect(() => {
     setBreakdown(null);
-    setSelectedCategory(null);
-    setToolFilter(null);
-    setParts([]);
+    setDrill(null);
+    setDrillData(null);
   }, [selectedId]);
 
   useEffect(() => {
@@ -61,31 +59,43 @@ export default function App() {
   }, [selectedId]);
 
   useEffect(() => {
-    if (!selectedId || (!selectedCategory && !toolFilter)) return;
-    const qs = toolFilter
-      ? `tool=${encodeURIComponent(toolFilter.tool)}`
-      : `category=${selectedCategory}`;
-    fetch(`/api/sessions/${selectedId}/parts?${qs}`)
+    if (!selectedId || !drill?.key) return;
+    const qs = new URLSearchParams();
+    qs.set("key", drill.key);
+    if (drill.tool) qs.set("tool", drill.tool);
+    if (drill.leaf) qs.set("leaf", drill.leaf);
+    fetch(`/api/sessions/${selectedId}/parts?${qs.toString()}`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then((d) => setParts(d.parts))
+      .then((d) => setDrillData(d))
       .catch((err) => {
         console.error("Failed to fetch parts:", err);
       });
-  }, [selectedId, selectedCategory, toolFilter]);
+  }, [selectedId, drill]);
 
   const selectedSession = sessions.find((s) => s.id === selectedId);
 
-  const handleCategorySelect = (type) => {
-    setToolFilter(null);
-    setSelectedCategory(type);
+  const handleCategorySelect = (key, leaf = null) => {
+    setDrill({ key, leaf, tool: null });
   };
 
-  const handleToolSelect = (tool, label) => {
-    setSelectedCategory(null);
-    setToolFilter({ tool, label });
+  const handleToolSelect = (tool, label, key = null) => {
+    setDrill({
+      key: key || drill?.key || "calls",
+      tool,
+      leaf: label || null,
+    });
+  };
+
+  const handleStripSelect = (key) => {
+    if (!key) {
+      setDrill(null);
+      setDrillData(null);
+      return;
+    }
+    setDrill({ key, leaf: null, tool: null });
   };
 
   return (
@@ -141,18 +151,16 @@ export default function App() {
             breakdown={breakdown}
             onCategorySelect={handleCategorySelect}
             onToolSelect={handleToolSelect}
+            onStripSelect={handleStripSelect}
           />
         )}
-        {parts.length > 0 && (
+        {drillData && drillData.parts && (
           <DrilldownView
-            parts={parts}
-            category={selectedCategory}
-            title={toolFilter ? `${toolFilter.label} calls` : null}
-            total={breakdown?.total || 0}
+            drill={drillData}
+            total={drillData.total || breakdown?.attribution?.total || 0}
           />
         )}
       </div>
     </>
   );
 }
-

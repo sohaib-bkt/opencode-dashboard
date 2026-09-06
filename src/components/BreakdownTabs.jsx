@@ -15,24 +15,41 @@ export default function BreakdownTabs({
   breakdown,
   onCategorySelect,
   onToolSelect,
+  onStripSelect,
 }) {
   const [active, setActive] = useState("treemap");
   const [zoomKey, setZoomKey] = useState(null);
-  const total = breakdown?.total || 0;
+  const attribution = breakdown?.attribution || null;
 
   useEffect(() => {
     setZoomKey(null);
   }, [sessionId]);
 
+  const handleCategory = (key, leaf = null) => {
+    setZoomKey(key);
+    onCategorySelect(key, leaf);
+  };
+
+  const handleTool = (tool, label, key = null) => {
+    if (key) setZoomKey(key);
+    onToolSelect(tool, label, key);
+  };
+
+  const handleStrip = (key) => {
+    setZoomKey(key);
+    if (onStripSelect) onStripSelect(key);
+    else if (key) onCategorySelect(key, null);
+  };
+
   return (
     <div style={{ marginBottom: 32 }}>
       <h2 className="section-title">Token Breakdown</h2>
 
-      {breakdown.attribution && (
+      {attribution && (
         <BreakdownStrip
-          attribution={breakdown.attribution}
+          attribution={attribution}
           selectedKey={zoomKey}
-          onSelect={setZoomKey}
+          onSelect={handleStrip}
         />
       )}
 
@@ -65,22 +82,24 @@ export default function BreakdownTabs({
           </button>
         ))}
       </div>
-      {active === "treemap" && breakdown.attribution && (
+      {active === "treemap" && attribution && (
         <BreakdownTreemap
-          attribution={breakdown.attribution}
+          attribution={attribution}
           zoomKey={zoomKey}
           onZoom={setZoomKey}
-          onToolSelect={onToolSelect}
+          onToolSelect={handleTool}
+          onCategorySelect={handleCategory}
         />
       )}
-      {active === "treemap" && !breakdown.attribution && (
-        <BreakdownBar breakdown={breakdown} onCategorySelect={onCategorySelect} />
+      {active === "sunburst" && attribution && (
+        <BreakdownSunburst
+          attribution={attribution}
+          onCategorySelect={handleCategory}
+          onToolSelect={handleTool}
+        />
       )}
-      {active === "sunburst" && (
-        <BreakdownSunburst breakdown={breakdown} onCategorySelect={onCategorySelect} />
-      )}
-      {active === "bar" && (
-        <BreakdownBar breakdown={breakdown} onCategorySelect={onCategorySelect} />
+      {active === "bar" && attribution && (
+        <BreakdownBar attribution={attribution} onCategorySelect={handleCategory} />
       )}
     </div>
   );

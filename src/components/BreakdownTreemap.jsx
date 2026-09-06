@@ -13,7 +13,7 @@ function truncate(s, maxChars) {
   return `${s.slice(0, maxChars - 1)}…`;
 }
 
-export default function BreakdownTreemap({ attribution, zoomKey, onZoom, onToolSelect }) {
+export default function BreakdownTreemap({ attribution, zoomKey, onZoom, onToolSelect, onCategorySelect }) {
   const svgRef = useRef();
   const [focus, setFocus] = useState(true);
 
@@ -78,8 +78,9 @@ export default function BreakdownTreemap({ attribution, zoomKey, onZoom, onToolS
       .attr("transform", (d) => `translate(${d.x0},${d.y0})`)
       .style("cursor", "pointer")
       .on("click", (event, d) => {
-        if (d.data.tool) onToolSelect(d.data.tool, d.data.name);
+        if (d.data.tool) onToolSelect(d.data.tool, d.data.name, d.data.catKey);
         else if (!zoomKey) onZoom(d.data.catKey);
+        else if (onCategorySelect) onCategorySelect(d.data.catKey, d.data.name);
       })
       .on("mouseover", (event, d) => {
         const pct = total > 0 ? (d.data.value / total) * 100 : 0;
@@ -144,7 +145,7 @@ export default function BreakdownTreemap({ attribution, zoomKey, onZoom, onToolS
     return () => {
       tooltip.remove();
     };
-  }, [attribution, zoomKey, focus, onZoom, onToolSelect]);
+  }, [attribution, zoomKey, focus, onZoom, onToolSelect, onCategorySelect]);
 
   if (!cats.length) return null;
 

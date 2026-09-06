@@ -173,12 +173,39 @@ function toolLeaves(items, maxTurn, kind, scale) {
 }
 
 function finalize(cats, total) {
-  const categories = cats
-    .map((c) => ({ ...c, total: c.children.reduce((a, l) => a + l.value, 0) }))
-    .filter((c) => c.total > 0.5 || c.items > 0);
-  const sum = categories.reduce((a, c) => a + c.total, 0);
-  for (const c of categories) c.pct = sum > 0 ? (c.total / sum) * 100 : 0;
-  return { categories, total: total ?? sum };
+  // Round leaf values to whole tokens and reconcile so everything adds up
+  // exactly: category totals = sum of leaves, grand total = sum of
+  // categories (or the measured basis total with drift parked on largest).
+  // Keep every category (even zero-total ones like history) so the
+  // sunburst/bar/strip always contain the full taxonomy and rows reconcile.
+  const categories = cats.map((c) => {
+    const children = (c.children || []).map((l) => ({
+      ...l,
+      value: Math.round(l.value || 0),
+    }));
+    const catTotal = children.reduce((a, l) => a + l.value, 0);
+    return { ...c, children, total: catTotal };
+  });
+  let sum = categories.reduce((a, c) => a + c.total, 0);
+  const basisTotal = total != null ? Math.round(total) : sum;
+  // Park rounding drift on the largest category so sum === basisTotal.
+  if (categories.length && sum !== basisTotal) {
+    let biggest = categories[0];
+    for (const c of categories) if (c.total > biggest.total) biggest = c;
+    const diff = basisTotal - sum;
+    biggest.total += diff;
+    if (biggest.children.length) {
+      let bigLeaf = biggest.children[0];
+      for (const l of biggest.children) if (l.value > bigLeaf.value) bigLeaf = l;
+      bigLeaf.value += diff;
+    }
+    sum = basisTotal;
+  }
+  for (const c of categories) {
+    c.pct = sum > 0 ? (c.total / sum) * 100 : 0;
+    for (const l of c.children) l.pct = sum > 0 ? (l.value / sum) * 100 : 0;
+  }
+  return { categories, total: sum };
 }
 
 function attributeLive(sessionId) {
@@ -351,6 +378,13 @@ function attributeCumulative(sessionId, measured) {
             ? [{ label: "Reasoning blocks", value: measured.reasoning, items: thinkN }]
             : [],
       },
+      {
+        key: "history",
+        label: "Conversation history",
+        estimated: true,
+        items: 0,
+        children: [],
+      },
     ]),
   };
 }
@@ -371,31 +405,11 @@ router.get("/:id/breakdown", (req, res) => {
     pct: breakdown.total > 0 ? (c.total / breakdown.total) * 100 : 0,
   }));
 
-  const totals = breakdown.categories.reduce(
-    (acc, c) => {
-      acc.input += c.tokens_input;
-      acc.output += c.tokens_output;
-      acc.reasoning += c.tokens_reasoning;
-      acc.cache_read += c.tokens_cache_read;
-      acc.cache_write += c.tokens_cache_write;
-      return acc;
-    },
-    { input: 0, output: 0, reasoning: 0, cache_read: 0, cache_write: 0 }
-  );
-
-  const live = attributeLive(req.params.id);
+  const { attribution, totals } = buildAttribution(req.params.id);
 
   res.json({
     ...breakdown,
-    attribution:
-      live ||
-      attributeCumulative(req.params.id, {
-        input: totals.input,
-        output: totals.output,
-        reasoning: totals.reasoning,
-        cache_read: totals.cache_read,
-        cache_write: totals.cache_write,
-      }),
+    attribution,
     totals: {
       ...totals,
       total: totals.input + totals.output + totals.reasoning + totals.cache_read + totals.cache_write,
@@ -420,56 +434,313 @@ router.get("/:id/turns", (req, res) => {
   res.json({ turns });
 });
 
-// GET /api/sessions/:id/parts?category=tool-calls
+// ---------------------------------------------------------------------------
+// Drill-down: one taxonomy everywhere. `key` is the attribution category
+// (system | messages | calls | results | thinking | history). `tool`
+// narrows to one tool, `leaf` to one leaf label (e.g. "User messages").
+// Legacy `category=tool-calls|stop|unknown` still works by mapping onto the
+// closest attribution key. Every row carries exact (rounded, reconciled)
+// `attr_tokens` + `attr_pct` so rows sum exactly to `categoryTotal` which
+// sums exactly to `total`. System prompt + tool schemas and conversation
+// history have no 1:1 stored parts, so they return honest synthetic rows
+// (estimated, labelled) instead of an empty list.
+// ---------------------------------------------------------------------------
+const LEGACY_TO_KEY = {
+  "tool-calls": "calls",
+  stop: "messages",
+  unknown: "messages",
+};
+
+function summarizePart(p) {
+  if (p.summary) return p.summary;
+  if (p.type === "text") {
+    if (typeof p.text === "string" && p.text.trim()) return p.text;
+    return p.role === "user" ? "(empty user message)" : "(empty assistant message)";
+  }
+  if (p.type === "reasoning") {
+    if (typeof p.text === "string" && p.text.trim()) return p.text;
+    const t = p.state?.time ?? p.time;
+    const dur =
+      t?.start && t?.end ? ` (${(((t.end - t.start) / 1000).toFixed(1))}s)` : "";
+    return `(encrypted / empty thinking block${dur})`;
+  }
+  if (p.type === "file")
+    return p.filename || p.url || p.mime || "file attachment";
+  if (p.type === "patch")
+    return Array.isArray(p.files) ? p.files.join(", ") : "patch";
+  const input = p.state?.input;
+  if (typeof input === "string") return input;
+  if (input && typeof input === "object") {
+    const bits = [];
+    if (input.command) bits.push(String(input.command).slice(0, 120));
+    if (input.filePath) bits.push(String(input.filePath).replace(/^.*\//, ""));
+    if (input.name) bits.push(String(input.name));
+    if (input.url) bits.push(String(input.url));
+    if (input.pattern) bits.push(String(input.pattern));
+    if (!bits.length) {
+      const keys = Object.keys(input);
+      if (keys.length) bits.push(keys.slice(0, 3).join(", "));
+    }
+    if (bits.length) return bits.join(" ");
+  }
+  if (p.tool) return p.tool;
+  return "";
+}
+
+function rawWeight(p, key) {
+  if (key === "calls") return contentTokens(p.state?.input);
+  if (key === "results")
+    return contentTokens(p.state?.output ?? p.state?.result ?? p.files);
+  if (key === "thinking" || key === "messages" || key === "history")
+    return contentTokens(
+      p.text ?? p.filename ?? p.url ?? (p.files || []).join(" ")
+    );
+  return 0;
+}
+
+function buildAttribution(sessionId) {
+  const steps = getStepFinishParts(sessionId);
+  const breakdown = aggregateBreakdown(steps);
+  const itemCounts = countItemsByCategory(sessionId);
+  breakdown.categories = breakdown.categories.map((c) => ({
+    ...c,
+    items: itemCounts[c.label] || 0,
+  }));
+  const totals = breakdown.categories.reduce(
+    (acc, c) => {
+      acc.input += c.tokens_input;
+      acc.output += c.tokens_output;
+      acc.reasoning += c.tokens_reasoning;
+      acc.cache_read += c.tokens_cache_read;
+      acc.cache_write += c.tokens_cache_write;
+      return acc;
+    },
+    { input: 0, output: 0, reasoning: 0, cache_read: 0, cache_write: 0 }
+  );
+  const live = attributeLive(sessionId);
+  const attribution =
+    live ||
+    attributeCumulative(sessionId, {
+      input: totals.input,
+      output: totals.output,
+      reasoning: totals.reasoning,
+      cache_read: totals.cache_read,
+      cache_write: totals.cache_write,
+    });
+  return { attribution, totals };
+}
+
+// GET /api/sessions/:id/parts?key=messages&tool=bash&leaf=User%20messages
 router.get("/:id/parts", (req, res) => {
   const session = getSession(req.params.id);
   if (!session) return res.status(404).json({ error: "Session not found" });
 
-  const category = req.query.category || "tool-calls";
+  let key = req.query.key || null;
+  if (!key && req.query.category) {
+    key = LEGACY_TO_KEY[req.query.category] || "messages";
+  }
+  if (!key && req.query.tool) key = "calls";
+  if (!key) key = "calls";
   const tool = req.query.tool || null;
-  const label = CATEGORY_MAP[category] || category;
+  const leaf = req.query.leaf || null;
 
-  let items = getPartsWithStepTokens(req.params.id);
-  if (tool) {
-    items = items.filter((p) => p.tool === tool);
+  const { attribution } = buildAttribution(req.params.id);
+  const total = attribution.total || 0;
+  const cat = attribution.categories.find((c) => c.key === key);
+  const categoryTotal = cat?.total || 0;
+
+  const leafOf = (label) => cat?.children?.find((l) => l.label === label);
+
+  // Turn + step-token annotation for every content part.
+  const turnOf = new Map();
+  const stepOf = new Map();
+  for (const p of getPartsWithStepTokens(req.params.id)) {
+    turnOf.set(p.id, p.turn);
+    stepOf.set(p.id, { tokens: p.step_tokens || null, reason: p.step_reason || null });
+  }
+  const content = getContentParts(req.params.id).map((p) => ({
+    ...p,
+    turn: turnOf.has(p.id) ? turnOf.get(p.id) : null,
+    step_tokens: stepOf.has(p.id) ? stepOf.get(p.id).tokens : null,
+    step_reason: stepOf.has(p.id) ? stepOf.get(p.id).reason : null,
+  }));
+
+  const titleOf = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  let candidates = [];
+  let note = null;
+  let estimated = true;
+
+  if (key === "system") {
+    // No stored parts: surface tool schemas + a system-prompt row carrying
+    // the estimated category tokens.
+    const byTool = new Map();
+    for (const p of content) {
+      if (p.type === "tool" && p.tool) byTool.set(p.tool, (byTool.get(p.tool) || 0) + 1);
+    }
+    const sysLeaf = cat?.children?.[0];
+    const sysTotal = sysLeaf?.value || categoryTotal || 0;
+    candidates = [
+      {
+        id: "system-prompt",
+        type: "system",
+        tool: null,
+        role: "system",
+        text: "System prompt + tool schemas (estimated — not stored as parts in the DB)",
+        state: null,
+        summary: "System prompt + tool schemas",
+        w: Math.max(sysTotal, 1),
+        synthetic: true,
+      },
+      ...[...byTool.entries()]
+        .map(([t, n]) => ({
+          id: `schema-${t}`,
+          type: "system",
+          tool: t,
+          role: "system",
+          text: `Tool schema: ${t} (${n} call${n === 1 ? "" : "s"} in session)`,
+          state: null,
+          summary: `schema: ${t}`,
+          w: 1,
+          synthetic: true,
+        }))
+        .sort((a, b) => b.text.localeCompare(a.text)),
+    ];
+    if (tool) candidates = candidates.filter((c) => c.tool === tool);
+    note = "System prompt text is not stored as parts; tokens are estimated from per-step overhead.";
+  } else if (key === "messages") {
+    candidates = content
+      .filter((p) => {
+        if (p.type === "text" && (p.role === "user" || p.role === "assistant")) return true;
+        if (p.type === "file") return true;
+        return false;
+      })
+      .map((p) => ({
+        ...p,
+        w: Math.max(rawWeight(p, key), 0.01),
+        kind: p.type === "file" ? "attachment" : p.role === "user" ? "user" : "assistant",
+      }));
+    if (leaf === "User messages") candidates = candidates.filter((c) => c.kind === "user" || c.kind === "attachment");
+    if (leaf === "Assistant messages") candidates = candidates.filter((c) => c.kind === "assistant");
+    if (tool) candidates = [];
+    note = "User + assistant message texts and file attachments.";
+  } else if (key === "calls") {
+    candidates = content
+      .filter((p) => p.type === "tool" && p.tool)
+      .map((p) => ({ ...p, w: Math.max(rawWeight(p, key), 0.01), kind: "call" }));
+    if (tool) candidates = candidates.filter((c) => c.tool === tool);
+    if (leaf) {
+      const t = [...(cat?.children || [])].find((l) => l.label === leaf)?.tool;
+      if (t) candidates = candidates.filter((c) => c.tool === t);
+    }
+    note = "Tool-call arguments (input side). Click a result in Tool results for outputs.";
+  } else if (key === "results") {
+    candidates = content
+      .filter((p) => {
+        if (p.type === "tool" && (p.state?.output !== undefined || p.state?.result !== undefined)) return true;
+        if (p.type === "patch") return true;
+        return false;
+      })
+      .map((p) => ({ ...p, w: Math.max(rawWeight(p, key), 0.01), kind: "result" }));
+    if (tool) candidates = candidates.filter((c) => c.tool === tool);
+    if (leaf) {
+      const t = [...(cat?.children || [])].find((l) => l.label === leaf)?.tool;
+      if (t) candidates = candidates.filter((c) => c.tool === t);
+    }
+    note = "Tool outputs / results (input side of next step).";
+  } else if (key === "thinking") {
+    candidates = content
+      .filter((p) => p.type === "reasoning")
+      .map((p) => ({ ...p, w: Math.max(rawWeight(p, key), 0.01), kind: "thinking" }));
+    if (tool) candidates = [];
+    note = "Reasoning / thinking blocks plus measured reasoning tokens.";
+  } else if (key === "history") {
+    // Estimated earlier-turns slice: show the oldest content as what the
+    // estimate is grounded in, labelled honestly.
+    const sorted = [...content].sort((a, b) => (a.time_created || 0) - (b.time_created || 0));
+    const half = sorted.slice(0, Math.max(1, Math.ceil(sorted.length / 2)));
+    candidates = half.map((p) => ({ ...p, w: Math.max(rawWeight(p, "history"), 0.01), kind: "history" }));
+    if (tool) candidates = candidates.filter((c) => c.tool === tool);
+    note =
+      (cat?.total || 0) > 0
+        ? "Estimated earlier-turns context (oldest halves shown as grounding; tokens estimated)."
+        : "No estimated history tokens in this snapshot — oldest turns shown for context (0 tokens).";
   } else {
-    items = items.filter(
-      (p) => (CATEGORY_MAP[p.step_reason] || p.step_reason || "Uncategorized") === label
-    );
+    return res.status(400).json({ error: `Unknown drill key: ${key}` });
   }
 
-  const parts = items.map((p) => {
-    let summary = "";
-    if (p.type === "text") {
-      summary = typeof p.text === "string" ? p.text : "";
-    } else if (p.state?.input) {
-      const input = p.state.input;
-      if (typeof input === "string") summary = input;
-      else {
-        const parts2 = [];
-        if (input.command) parts2.push(input.command);
-        if (input.filePath) parts2.push(input.filePath.replace(/^.*\//, ""));
-        if (input.name) parts2.push(input.name);
-        if (Object.keys(input).length && parts2.length === 0)
-          parts2.push(JSON.stringify(input));
-        summary = parts2.join(" ");
-      }
+  if (leaf && key !== "system" && !["User messages", "Assistant messages"].includes(leaf)) {
+    // leaf already applied for calls/results via tool lookup above
+  }
+
+  // Apportion the (already reconciled) category/leaf total across rows so
+  // displayed tokens are exact and sum exactly to the header.
+  let target = categoryTotal;
+  if (leaf) {
+    const l = leafOf(leaf);
+    if (l) target = l.value;
+    else if (key === "system") target = categoryTotal;
+    else if ((key === "calls" || key === "results") && tool) {
+      const l2 = (cat?.children || []).find((c) => c.tool === tool);
+      if (l2) target = l2.value;
     }
+  } else if (tool && (key === "calls" || key === "results")) {
+    const l2 = (cat?.children || []).find((c) => c.tool === tool);
+    if (l2) target = l2.value;
+  }
+  const wSum = candidates.reduce((a, c) => a + (c.w || 0), 0);
+  let rows = candidates.map((c) => ({
+    ...c,
+    attr_tokens: wSum > 0 ? Math.round(((c.w || 0) / wSum) * target) : 0,
+  }));
+  // Reconcile rounding drift onto the largest row.
+  const rSum = rows.reduce((a, r) => a + r.attr_tokens, 0);
+  if (rows.length && rSum !== target) {
+    let big = rows[0];
+    for (const r of rows) if (r.attr_tokens > big.attr_tokens) big = r;
+    big.attr_tokens += target - rSum;
+  }
+
+  const parts = rows.map((p) => {
+    const summary = summarizePart(p);
     return {
       id: p.id,
-      time_created: p.time_created,
+      time_created: p.time_created || null,
       type: p.type,
+      kind: p.kind || null,
       tool: p.tool || null,
+      role: p.role || null,
       state: p.state || null,
-      text: p.type === "text" ? p.text || null : null,
+      text: p.type === "text" || p.type === "reasoning" || p.type === "system" ? p.text || null : null,
+      filename: p.filename || null,
+      url: p.url || null,
+      mime: p.mime || null,
+      files: p.files || null,
       turn: p.turn ?? null,
       step_reason: p.step_reason ?? null,
       step_tokens: p.step_tokens || null,
-      summary: summary.slice(0, 200),
+      content_tokens: Math.round(p.w || 0),
+      attr_tokens: p.attr_tokens,
+      attr_pct: total > 0 ? (p.attr_tokens / total) * 100 : 0,
+      synthetic: !!p.synthetic,
+      summary: String(summary || "").slice(0, 200),
     };
   });
 
-  res.json({ parts, tool: tool || null });
+  // Most useful first for big lists is by tokens, but keep chronological
+  // default stable; frontend offers the sort toggle.
+  parts.sort((a, b) => (a.time_created || 0) - (b.time_created || 0));
+
+  res.json({
+    parts,
+    key,
+    tool: tool || null,
+    leaf: leaf || null,
+    label: tool ? titleOf(tool) : leaf || cat?.label || key,
+    categoryTotal: target,
+    total,
+    estimated,
+    note,
+  });
 });
 
 // GET /api/sessions/:id/parts/:partId
