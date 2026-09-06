@@ -38,7 +38,25 @@ The production server serves the built frontend and API from port 3001.
 
 ## What It Shows
 
-- **Overview cards**: Total tokens, input/output split, cache hit rate, estimated cost
-- **Breakdown charts**: Bar chart, treemap, and sunburst views of token categories
-- **Drill-down**: Click any category to see individual tool calls with full input/result content
-- **Auto-refresh**: Polls every 5 seconds while viewing a session
+Two views, switchable in the header:
+
+### Session view
+
+- **Live context hero**: current context-window pressure with per-model window sizes
+  (unknown models fall back to 200K)
+- **Overview cards**: total tokens, input/output split, cache hit rate, estimated cost
+- **Token breakdown**: treemap, sunburst, and bar views over one shared taxonomy —
+  system prompt + tool schemas, messages, tool calls, tool results, thinking, and
+  conversation history. All charts reconcile exactly to the live snapshot total
+  (values marked *estimated* are apportioned from content sizes at ~4 chars/token)
+- **Drill-down**: click any category, leaf, or tool to list the underlying parts —
+  user/assistant messages with roles, tool inputs and results, thinking blocks with
+  durations, and per-row exact tokens + % of total. System prompt and history rows
+  are honest estimates (that data isn't stored as parts)
+- **Auto-refresh**: polls every 5 seconds while viewing a session
+
+### Trends view
+
+- **Tokens & cost per day** time-series (7/30/90-day windows, calendar-day buckets)
+- **By-model** totals for cost/token comparison across models
+- **Hottest sessions** ranked by live context pressure — click to jump into a session
