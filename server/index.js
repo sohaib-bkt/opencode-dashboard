@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 import path from "path";
 import sessionsRouter from "./routes/sessions.js";
 import breakdownRouter from "./routes/breakdown.js";
+import trendsRouter from "./routes/trends.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -12,6 +13,7 @@ app.use(express.json());
 
 app.use("/api/sessions", sessionsRouter);
 app.use("/api/sessions", breakdownRouter);
+app.use("/api/trends", trendsRouter);
 
 // Serve static files in production
 const distPath = path.join(__dirname, "..", "dist");

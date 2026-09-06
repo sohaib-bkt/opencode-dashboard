@@ -4,14 +4,18 @@ import ContextHero from "./components/ContextHero";
 import OverviewCards from "./components/OverviewCards";
 import BreakdownTabs from "./components/BreakdownTabs";
 import DrilldownView from "./components/DrilldownView";
+import TrendsView from "./components/TrendsView";
 import { formatTokens } from "./utils/format";
 
 export default function App() {
+  const [view, setView] = useState("session");
   const [sessions, setSessions] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
   const [drill, setDrill] = useState(null);
   const [drillData, setDrillData] = useState(null);
+  const [trends, setTrends] = useState(null);
+  const [trendDays, setTrendDays] = useState(30);
 
   useEffect(() => {
     fetch("/api/sessions")
@@ -98,6 +102,30 @@ export default function App() {
     setDrill({ key, leaf: null, tool: null });
   };
 
+  useEffect(() => {
+    if (view !== "trends") return;
+    let cancelled = false;
+    fetch(`/api/trends?days=${trendDays}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d) => {
+        if (!cancelled) setTrends(d);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch trends:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, trendDays, sessions]);
+
+  const handleTrendSession = (id) => {
+    setSelectedId(id);
+    setView("session");
+  };
+
   return (
     <>
       <header className="header">
@@ -112,8 +140,32 @@ export default function App() {
         <SessionPicker
           sessions={sessions}
           selectedId={selectedId}
-          onChange={setSelectedId}
+          onChange={(id) => {
+            setSelectedId(id);
+            setView("session");
+          }}
         />
+        <div style={{ display: "flex", gap: 4 }}>
+          {["session", "trends"].map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              style={{
+                background: view === v ? "var(--bg-card)" : "transparent",
+                color: view === v ? "var(--text-primary)" : "var(--text-secondary)",
+                border: "1px solid var(--border)",
+                borderRadius: "6px",
+                padding: "6px 14px",
+                fontSize: "13px",
+                cursor: "pointer",
+                fontWeight: view === v ? 600 : 400,
+                textTransform: "capitalize",
+              }}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
         {selectedSession && (
           <div
             className="model-badge"
@@ -141,7 +193,16 @@ export default function App() {
         )}
       </header>
       <div className="container">
-        {selectedSession && <ContextHero session={selectedSession} />}
+        {view === "trends" ? (
+          <TrendsView
+            data={trends}
+            days={trendDays}
+            onDaysChange={setTrendDays}
+            onSelectSession={handleTrendSession}
+          />
+        ) : (
+          <>
+            {selectedSession && <ContextHero session={selectedSession} />}
         {selectedSession && (
           <OverviewCards session={selectedSession} breakdown={breakdown} />
         )}
@@ -159,6 +220,8 @@ export default function App() {
             drill={drillData}
             total={drillData.total || breakdown?.attribution?.total || 0}
           />
+        )}
+          </>
         )}
       </div>
     </>
