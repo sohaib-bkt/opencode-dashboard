@@ -2,6 +2,9 @@
 
 A local web dashboard that visualizes token/context usage for OpenCode agent sessions.
 
+<img width="1919" height="842" alt="image" src="https://github.com/user-attachments/assets/a0657811-1361-4580-bc64-16eb5819c8e4" />
+<img width="1920" height="766" alt="image" src="https://github.com/user-attachments/assets/90a4c7e7-8bab-438a-8c02-1cde36d3c562" />
+
 ## Prerequisites
 
 - Node.js 18+
